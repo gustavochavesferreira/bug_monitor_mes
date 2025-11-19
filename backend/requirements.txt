@@ -5,3 +5,4 @@ python-dotenv
 PyGithub
 psycopg2-binary
 GitPython
+APScheduler

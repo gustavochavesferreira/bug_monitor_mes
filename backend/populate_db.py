@@ -1,54 +1,26 @@
 import os
 import json
-from dotenv import load_dotenv
-from models import SessionLocal, upsert_issue, init_db, Base, engine
 from datetime import datetime
+from dotenv import load_dotenv
 import requests
+from models import SessionLocal, upsert_issue, init_db, Base, engine
 
 load_dotenv()
 
+# --- Configuration ---
 TOKEN = os.getenv("GITHUB_TOKEN")
+if not TOKEN:
+    raise RuntimeError("GITHUB_TOKEN not set in .env")
+
 REPO_NAME = "facebook/react"
 BUG_LABELS = ["Type: Bug"]
-MAX_ISSUES = 20
+MAX_ISSUES = 100  # adjust if you want more
+PER_PAGE = 100  # GitHub REST max per page
 
-HEADERS = {"Authorization": f"Bearer {TOKEN}"}
-GRAPHQL_URL = "https://api.github.com/graphql"
+HEADERS = {"Authorization": f"token {TOKEN}"}
 
 
-def run_graphql_query(query, variables=None):
-    resp = requests.post(
-        GRAPHQL_URL,
-        headers=HEADERS,
-        json={"query": query, "variables": variables or {}},
-    )
-    resp.raise_for_status()
-    data = resp.json()
-    if "errors" in data:
-        raise RuntimeError(f"GraphQL query error: {data['errors']}")
-    return data["data"]
-
-def issue_to_dict(issue_node):
-    labels = [l["name"] for l in issue_node.get("labels", {}).get("nodes", [])]
-    if not any(lbl in BUG_LABELS for lbl in labels):
-        return None
-
-    return {
-        "id": issue_node["id"],  # store as string
-        "number": issue_node["number"],
-        "title": issue_node["title"],
-        "body": issue_node["body"],
-        "state": issue_node["state"],
-        "created_at": datetime.strptime(issue_node["createdAt"], "%Y-%m-%dT%H:%M:%SZ"),
-        "closed_at": datetime.strptime(issue_node["closedAt"], "%Y-%m-%dT%H:%M:%SZ") if issue_node.get("closedAt") else None,
-        "closed_by": None,
-        "creator": issue_node["author"]["login"] if issue_node.get("author") else None,
-        "comments_count": issue_node["comments"]["totalCount"],
-        "labels": labels,
-        "html_url": issue_node["url"],
-        "repository": REPO_NAME,
-    }
-
+# --- Helpers ---
 def clear_and_init_db():
     print("Dropping all tables...")
     Base.metadata.drop_all(bind=engine)
@@ -56,74 +28,83 @@ def clear_and_init_db():
     init_db()
     print("Database cleared and initialized.")
 
-def collect_issues_data():
-    session = SessionLocal()
-    print(f"Collecting issues for {REPO_NAME} via GraphQL...")
 
-    has_next_page = True
-    cursor = None
+def fetch_issue_details(issue_number):
+    """Get full issue info (including closed_by) via REST API."""
+    url = f"https://api.github.com/repos/{REPO_NAME}/issues/{issue_number}"
+    resp = requests.get(url, headers=HEADERS)
+    resp.raise_for_status()
+    return resp.json()
+
+
+def collect_issues_data_rest():
+    session = SessionLocal()
+    print(f"Collecting issues for {REPO_NAME} via REST API...")
+
+    page = 1
     count = 0
 
-    while has_next_page and count < MAX_ISSUES:
-        query = """
-        query($owner: String!, $name: String!, $after: String) {
-          repository(owner: $owner, name: $name) {
-            issues(
-              first: 50,
-              after: $after,
-              states: [OPEN, CLOSED],
-              labels: ["Type: Bug"],
-              orderBy: {field: CREATED_AT, direction: DESC}
-            ) {
-              edges {
-                node {
-                  id
-                  number
-                  title
-                  body
-                  state
-                  createdAt
-                  closedAt
-                  author { login }
-                  comments { totalCount }
-                  labels(first: 20) { nodes { name } }
-                  url
-                }
-              }
-              pageInfo { endCursor hasNextPage }
+    while True:
+        params = {
+            "state": "all",
+            "labels": ",".join(BUG_LABELS),
+            "per_page": PER_PAGE,
+            "page": page,
+        }
+
+        resp = requests.get(
+            f"https://api.github.com/repos/{REPO_NAME}/issues",
+            headers=HEADERS,
+            params=params,
+        )
+        resp.raise_for_status()
+        issues = resp.json()
+        if not issues:
+            break
+
+        for issue in issues:
+            # Skip pull requests
+            if "pull_request" in issue:
+                continue
+
+            # Fetch full issue details to get closed_by
+            full_issue = fetch_issue_details(issue["number"])
+
+            closed_by = full_issue.get("closed_by")
+            issue_data = {
+                "id": str(issue["id"]),
+                "number": issue["number"],
+                "title": issue["title"],
+                "body": issue.get("body"),
+                "state": issue["state"],
+                "created_at": datetime.strptime(issue["created_at"], "%Y-%m-%dT%H:%M:%SZ"),
+                "closed_at": datetime.strptime(full_issue["closed_at"], "%Y-%m-%dT%H:%M:%SZ")
+                             if full_issue.get("closed_at") else None,
+                "closed_by": closed_by["login"] if closed_by else None,
+                "creator": issue.get("user", {}).get("login"),
+                "comments_count": issue["comments"],
+                "labels": [lbl["name"] for lbl in issue.get("labels", [])],
+                "html_url": issue["html_url"],
+                "repository": REPO_NAME,
             }
-          }
-        }
-        """
 
-        variables = {
-            "owner": REPO_NAME.split("/")[0],
-            "name": REPO_NAME.split("/")[1],
-            "after": cursor,
-        }
+            upsert_issue(session, issue_data)
+            count += 1
 
-        data = run_graphql_query(query, variables)
-        issues_edges = data["repository"]["issues"]["edges"]
-        page_info = data["repository"]["issues"]["pageInfo"]
-        cursor = page_info["endCursor"]
-        has_next_page = page_info["hasNextPage"]
-
-        for edge in issues_edges:
-            node = edge["node"]
-            issue_data = issue_to_dict(node)
-            if issue_data:
-                upsert_issue(session, issue_data)
-                count += 1
-                if count >= MAX_ISSUES:
-                    break
+            if count >= MAX_ISSUES:
+                break
 
         session.commit()
+        if count >= MAX_ISSUES:
+            break
+        page += 1
 
     session.close()
-    print(f"Inserted/updated {count} issues via GraphQL.")
+    print(f"Inserted/updated {count} issues via REST API.")
 
 
+# --- Main ---
 if __name__ == "__main__":
     clear_and_init_db()
-    collect_issues_data()
-    print("Database populated with issues via GraphQL!")
+    collect_issues_data_rest()
+    print("Database populated with issues via REST API!")
