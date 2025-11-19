@@ -1,11 +1,11 @@
-# backend/populate_db.py
 import os
-from github import Github, Auth
 from dotenv import load_dotenv
-from datetime import datetime
+from github import Github, Auth
 from models import SessionLocal, upsert_issue
+from datetime import datetime
 
 load_dotenv()
+
 TOKEN = os.getenv("GITHUB_TOKEN")
 REPO_NAME = "facebook/react"
 BUG_LABELS = ["Type: Bug"]
@@ -16,6 +16,7 @@ g = Github(auth=Auth.Token(TOKEN), per_page=100)
 def issue_to_dict(issue, repo_full_name):
     if getattr(issue, "pull_request", None):
         return None
+
     labels = [lbl.name for lbl in issue.labels]
     if not any(lbl in BUG_LABELS for lbl in labels):
         return None
@@ -40,8 +41,8 @@ def populate():
     session = SessionLocal()
     repo = g.get_repo(REPO_NAME)
     issues = repo.get_issues(state="all", labels=BUG_LABELS)
-    count = 0
 
+    count = 0
     for issue in issues:
         if count >= MAX_ISSUES:
             break
@@ -49,15 +50,16 @@ def populate():
         data = issue_to_dict(issue, repo.full_name)
         if not data:
             continue
+
         upsert_issue(session, data)
         count += 1
-        
+
         if count % 50 == 0:
             session.commit()
 
     session.commit()
-    print(f"Inserted/updated {count} bug issues.")
     session.close()
+    print(f"Inserted/updated {count} issues.")
 
 if __name__ == "__main__":
     populate()

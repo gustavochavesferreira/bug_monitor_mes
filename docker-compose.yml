@@ -1,0 +1,37 @@
+version: "3.9"
+
+services:
+  db:
+    image: postgres:16
+    restart: always
+    environment:
+      POSTGRES_USER: buguser
+      POSTGRES_PASSWORD: bugpass
+      POSTGRES_DB: bugdb
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - bugnet
+
+  backend:
+    build: ./backend
+    restart: always
+    environment:
+      DATABASE_URL: postgresql+psycopg2://buguser:bugpass@db:5432/bugdb
+      GITHUB_TOKEN: ${GITHUB_TOKEN}
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./frontend:/app/frontend
+    depends_on:
+      - db
+    networks:
+      - bugnet
+
+networks:
+  bugnet:
+
+volumes:
+  postgres_data:

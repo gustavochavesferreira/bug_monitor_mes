@@ -1,5 +1,6 @@
 Flask
 SQLAlchemy
-PyGithub
 requests
 python-dotenv
+PyGithub
+psycopg2-binary

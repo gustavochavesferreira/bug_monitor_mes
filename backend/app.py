@@ -1,12 +1,10 @@
-# backend/app.py
 import os
 from flask import Flask, jsonify, send_from_directory
-from models import SessionLocal, Issue
 from datetime import datetime
+from models import SessionLocal, Issue
 
-# Dynamically locate the frontend folder
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))       
-FRONTEND_DIR = os.path.abspath(os.path.join(BASE_DIR, "../frontend"))
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+FRONTEND_DIR = os.path.join(BASE_DIR, "frontend")
 
 app = Flask(__name__, static_folder=FRONTEND_DIR, static_url_path="/")
 
@@ -26,28 +24,30 @@ def api_summary():
     session = get_session()
     issues = session.query(Issue).all()
 
-    # bugs over time
+    # Bugs over time
     counts = {}
     for i in issues:
-        m = i.created_at.strftime("%Y-%m") if i.created_at else None
-        if m:
-            counts[m] = counts.get(m, 0) + 1
+        if i.created_at:
+            key = i.created_at.strftime("%Y-%m")
+            counts[key] = counts.get(key, 0) + 1
     bugs_over_time = [{"period": k, "count": v} for k, v in sorted(counts.items())]
 
-    # time to fix
-    times = []
-    for i in issues:
-        if i.created_at and i.closed_at:
-            dt = (i.closed_at - i.created_at).total_seconds() / 86400
-            if dt >= 0:
-                times.append(dt)
+    # Time to fix
+    times = [
+        (i.closed_at - i.created_at).total_seconds() / 86400
+        for i in issues
+        if i.created_at and i.closed_at and i.closed_at >= i.created_at
+    ]
 
-    # top developers
-    dev = {}
+    # Top developers
+    dev_counts = {}
     for i in issues:
         if i.closed_by:
-            dev[i.closed_by] = dev.get(i.closed_by, 0) + 1
-    top_devs = [{"developer": d, "count": c} for d, c in sorted(dev.items(), key=lambda x: -x[1])[:20]]
+            dev_counts[i.closed_by] = dev_counts.get(i.closed_by, 0) + 1
+    top_devs = sorted(
+        [{"developer": d, "count": c} for d, c in dev_counts.items()],
+        key=lambda x: -x["count"]
+    )[:20]
 
     session.close()
     return jsonify({
@@ -63,9 +63,9 @@ def index():
 @app.route("/<path:p>")
 def static_files(p):
     f = os.path.join(app.static_folder, p)
-    if os.path.exists(f):
+    if os.path.isfile(f):
         return send_from_directory(app.static_folder, p)
     return send_from_directory(app.static_folder, "index.html")
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(host="0.0.0.0", debug=True)

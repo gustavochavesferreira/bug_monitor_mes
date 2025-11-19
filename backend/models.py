@@ -1,18 +1,39 @@
-# backend/models.py
+import os
 import json
 from datetime import datetime
-from sqlalchemy import Column, Integer, String, Text, DateTime, create_engine
+from dotenv import load_dotenv
+from sqlalchemy import (
+    Column, Integer, BigInteger, String, Text, DateTime, create_engine
+)
 from sqlalchemy.orm import declarative_base, sessionmaker
 
-DATABASE_URL = "sqlite:///bugs.db"
+# Load .env from project root
+load_dotenv()
+
+DATABASE_URL = os.getenv("DATABASE_URL")
+if not DATABASE_URL:
+    raise RuntimeError("DATABASE_URL is not set. Check your .env or docker-compose.")
 
 Base = declarative_base()
-engine = create_engine(DATABASE_URL, echo=False, future=True)
-SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
+
+# SQLAlchemy engine for PostgreSQL
+engine = create_engine(
+    DATABASE_URL,
+    echo=False,
+    future=True
+)
+
+# Session factory
+SessionLocal = sessionmaker(
+    bind=engine,
+    autoflush=False,
+    autocommit=False
+)
 
 class Issue(Base):
     __tablename__ = "issues"
-    id = Column(Integer, primary_key=True)
+
+    id = Column(BigInteger, primary_key=True)
     number = Column(Integer)
     title = Column(Text)
     body = Column(Text)
@@ -22,7 +43,7 @@ class Issue(Base):
     closed_by = Column(String(200))
     creator = Column(String(200))
     comments_count = Column(Integer)
-    labels = Column(Text)          # JSON list
+    labels = Column(Text)  # JSON list
     html_url = Column(String(400))
     repository = Column(String(200))
 
@@ -44,16 +65,19 @@ class Issue(Base):
         }
 
 def init_db():
+    """Create all tables in PostgreSQL."""
     Base.metadata.create_all(bind=engine)
 
 def upsert_issue(session, data):
+    """Insert or update issue."""
     existing = session.query(Issue).filter(Issue.id == data["id"]).one_or_none()
+
+    # Normalize JSON field
+    if "labels" in data:
+        data["labels"] = json.dumps(data["labels"])
+
     if existing:
         for k, v in data.items():
-            if k == "labels":
-                v = json.dumps(v)
             setattr(existing, k, v)
     else:
-        session.add(Issue(
-            **{k: (json.dumps(v) if k == "labels" else v) for k, v in data.items()}
-        ))
+        session.add(Issue(**data))
