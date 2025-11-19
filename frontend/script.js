@@ -51,12 +51,40 @@ function plotTopDevs(data) {
     });
 }
 
+async function loadFiles() {
+    const resp = await fetch("/api/files");
+    return resp.json();
+}
+
+function plotFiles(data) {
+    const ctx = document.getElementById("topFiles");
+
+    new Chart(ctx, {
+        type: "bar",
+        data: {
+            labels: data.map(i => i.file_name),
+            datasets: [{
+                label: "Times Modified",
+                data: data.map(i => i.changes),
+                borderWidth: 1
+            }]
+        },
+        options: {
+            indexAxis: 'y', // horizontal bar chart
+        }
+    });
+}
+
+
 async function main() {
     const summary = await loadSummary();
+    const files = await loadFiles();
 
     plotBugsOverTime(summary.bugs_over_time);
     plotTimeToFix(summary.time_to_fix);
     plotTopDevs(summary.top_developers);
+    plotFiles(files);
 }
 
 main();
+

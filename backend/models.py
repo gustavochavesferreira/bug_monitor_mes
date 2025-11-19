@@ -64,6 +64,14 @@ class Issue(Base):
             "repository": self.repository,
         }
 
+class FileModification(Base):
+    __tablename__ = "file_modifications"
+
+    id = Column(BigInteger, primary_key=True)
+    repo = Column(String(200))
+    file_name = Column(Text)
+    changes = Column(Integer, default=0)
+
 def init_db():
     """Create all tables in PostgreSQL."""
     Base.metadata.create_all(bind=engine)

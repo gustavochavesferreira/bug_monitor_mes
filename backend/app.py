@@ -1,7 +1,7 @@
 import os
 from flask import Flask, jsonify, send_from_directory
 from datetime import datetime
-from models import SessionLocal, Issue
+from models import SessionLocal, Issue, FileModification
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 FRONTEND_DIR = os.path.join(BASE_DIR, "frontend")
@@ -56,6 +56,14 @@ def api_summary():
         "top_developers": top_devs,
     })
 
+@app.route("/api/files")
+def api_files():
+    session = get_session()
+    files = session.query(FileModification).order_by(FileModification.changes.desc()).limit(20).all()
+    data = [{"file_name": f.file_name, "changes": f.changes} for f in files]
+    session.close()
+    return jsonify(data)
+
 @app.route("/")
 def index():
     return send_from_directory(app.static_folder, "index.html")
@@ -68,4 +76,4 @@ def static_files(p):
     return send_from_directory(app.static_folder, "index.html")
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", debug=True)
+    app.run(host="0.0.0.0", debug=True, use_reloader=True)
