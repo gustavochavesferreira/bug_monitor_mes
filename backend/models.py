@@ -33,7 +33,7 @@ SessionLocal = sessionmaker(
 class Issue(Base):
     __tablename__ = "issues"
 
-    id = Column(BigInteger, primary_key=True)
+    id = Column(String(50), primary_key=True) 
     number = Column(Integer)
     title = Column(Text)
     body = Column(Text)

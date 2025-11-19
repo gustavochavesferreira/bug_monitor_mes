@@ -3,13 +3,14 @@ from git import Repo, GitCommandError
 from models import SessionLocal, FileModification
 
 TARGET_REPO_URL = os.getenv("TARGET_REPO", "https://github.com/facebook/react.git")
-LOCAL_REPO_PATH = "repos/react" 
+LOCAL_REPO_PATH = "repos/react"
+LOCAL_REPO_DIR = os.path.dirname(LOCAL_REPO_PATH)
 
 def clone_or_update_repo():
-    """
-    Clone the repo if it doesn't exist, else fetch latest changes.
-    """
-    if not os.path.exists(LOCAL_REPO_PATH):
+    # Ensure parent folder exists
+    os.makedirs(LOCAL_REPO_DIR, exist_ok=True)
+
+    if not os.path.exists(LOCAL_REPO_PATH) or not os.path.isdir(os.path.join(LOCAL_REPO_PATH, ".git")):
         print(f"Cloning repo {TARGET_REPO_URL} ...")
         Repo.clone_from(TARGET_REPO_URL, LOCAL_REPO_PATH)
     else:
@@ -19,7 +20,6 @@ def clone_or_update_repo():
             repo.remotes.origin.pull()
         except GitCommandError as e:
             print(f"Warning: could not pull repo: {e}")
-
 
 def collect_bugfix_files_local(max_commits=2000):
     """

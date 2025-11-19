@@ -28,25 +28,20 @@ def run_graphql_query(query, variables=None):
         raise RuntimeError(f"GraphQL query error: {data['errors']}")
     return data["data"]
 
-
 def issue_to_dict(issue_node):
-    # Skip pull requests
-    if issue_node.get("pullRequest"):
-        return None
-
     labels = [l["name"] for l in issue_node.get("labels", {}).get("nodes", [])]
     if not any(lbl in BUG_LABELS for lbl in labels):
         return None
 
     return {
-        "id": int(issue_node["id"], 16) if isinstance(issue_node["id"], str) else issue_node["id"],
+        "id": issue_node["id"],  # store as string
         "number": issue_node["number"],
         "title": issue_node["title"],
         "body": issue_node["body"],
         "state": issue_node["state"],
         "created_at": datetime.strptime(issue_node["createdAt"], "%Y-%m-%dT%H:%M:%SZ"),
         "closed_at": datetime.strptime(issue_node["closedAt"], "%Y-%m-%dT%H:%M:%SZ") if issue_node.get("closedAt") else None,
-        "closed_by": issue_node.get("closedBy", {}).get("login"),
+        "closed_by": None,
         "creator": issue_node["author"]["login"] if issue_node.get("author") else None,
         "comments_count": issue_node["comments"]["totalCount"],
         "labels": labels,
@@ -54,14 +49,12 @@ def issue_to_dict(issue_node):
         "repository": REPO_NAME,
     }
 
-
 def clear_and_init_db():
     print("Dropping all tables...")
     Base.metadata.drop_all(bind=engine)
     print("Recreating tables...")
     init_db()
     print("Database cleared and initialized.")
-
 
 def collect_issues_data():
     session = SessionLocal()
@@ -75,7 +68,13 @@ def collect_issues_data():
         query = """
         query($owner: String!, $name: String!, $after: String) {
           repository(owner: $owner, name: $name) {
-            issues(first: 50, after: $after, states: [OPEN, CLOSED], labels: ["Type: Bug"], orderBy: {field: CREATED_AT, direction: DESC}) {
+            issues(
+              first: 50,
+              after: $after,
+              states: [OPEN, CLOSED],
+              labels: ["Type: Bug"],
+              orderBy: {field: CREATED_AT, direction: DESC}
+            ) {
               edges {
                 node {
                   id
@@ -85,12 +84,10 @@ def collect_issues_data():
                   state
                   createdAt
                   closedAt
-                  closedBy { login }
                   author { login }
                   comments { totalCount }
                   labels(first: 20) { nodes { name } }
                   url
-                  pullRequest { id }  # to detect PRs
                 }
               }
               pageInfo { endCursor hasNextPage }

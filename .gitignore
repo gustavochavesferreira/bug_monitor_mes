@@ -12,8 +12,7 @@ backend/bugs.db
 backend/__pycache__/
 
 # Ignore everything in repos/react except .gitkeep
-repos/react/*
-!repos/react/.gitkeep
+repos/
 
 # Docker
 *.log
