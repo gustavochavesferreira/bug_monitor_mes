@@ -2,38 +2,22 @@ import os
 import json
 from datetime import datetime
 from dotenv import load_dotenv
-from sqlalchemy import (
-    Column, Integer, BigInteger, String, Text, DateTime, create_engine
-)
+from sqlalchemy import Column, Integer, BigInteger, String, Text, DateTime, create_engine
 from sqlalchemy.orm import declarative_base, sessionmaker
 
-# Load .env from project root
 load_dotenv()
 
 DATABASE_URL = os.getenv("DATABASE_URL")
 if not DATABASE_URL:
-    raise RuntimeError("DATABASE_URL is not set. Check your .env or docker-compose.")
+    raise RuntimeError("DATABASE_URL not set. Check .env or docker-compose.")
 
 Base = declarative_base()
-
-# SQLAlchemy engine for PostgreSQL
-engine = create_engine(
-    DATABASE_URL,
-    echo=False,
-    future=True
-)
-
-# Session factory
-SessionLocal = sessionmaker(
-    bind=engine,
-    autoflush=False,
-    autocommit=False
-)
+engine = create_engine(DATABASE_URL, echo=False, future=True)
+SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
 
 class Issue(Base):
     __tablename__ = "issues"
-
-    id = Column(String(50), primary_key=True) 
+    id = Column(String(50), primary_key=True)
     number = Column(Integer)
     title = Column(Text)
     body = Column(Text)
@@ -66,24 +50,23 @@ class Issue(Base):
 
 class FileModification(Base):
     __tablename__ = "file_modifications"
-
     id = Column(BigInteger, primary_key=True)
     repo = Column(String(200))
     file_name = Column(Text)
     changes = Column(Integer, default=0)
 
+class Metadata(Base):
+    __tablename__ = "metadata"
+    key = Column(String(50), primary_key=True)
+    value = Column(String(200))
+
 def init_db():
-    """Create all tables in PostgreSQL."""
     Base.metadata.create_all(bind=engine)
 
 def upsert_issue(session, data):
-    """Insert or update issue."""
     existing = session.query(Issue).filter(Issue.id == data["id"]).one_or_none()
-
-    # Normalize JSON field
     if "labels" in data:
         data["labels"] = json.dumps(data["labels"])
-
     if existing:
         for k, v in data.items():
             setattr(existing, k, v)
