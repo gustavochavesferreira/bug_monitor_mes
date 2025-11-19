@@ -10,8 +10,10 @@ __pycache__/
 # Backend database files
 backend/bugs.db
 backend/__pycache__/
-backend/repos/react/  # Ignore cloned react repo completely
-backend/repos/**/*.git/  # Just in case there are nested git dirs
+
+# Ignore everything in repos/react except .gitkeep
+repos/react/*
+!repos/react/.gitkeep
 
 # Docker
 *.log
