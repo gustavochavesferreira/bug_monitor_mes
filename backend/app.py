@@ -2,8 +2,10 @@ import os
 from flask import Flask, jsonify, send_from_directory
 from datetime import datetime
 from models import SessionLocal, Issue, FileModification
+from file_tracker import collect_bugfix_files_local
+from populate_db import *
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 FRONTEND_DIR = os.path.join(BASE_DIR, "frontend")
 
 app = Flask(__name__, static_folder=FRONTEND_DIR, static_url_path="/")
@@ -70,8 +72,8 @@ def index():
 
 @app.route("/<path:p>")
 def static_files(p):
-    f = os.path.join(app.static_folder, p)
-    if os.path.isfile(f):
+    file_path = os.path.join(app.static_folder, p)
+    if os.path.isfile(file_path):
         return send_from_directory(app.static_folder, p)
     return send_from_directory(app.static_folder, "index.html")
 

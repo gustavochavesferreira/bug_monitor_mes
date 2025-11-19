@@ -1,19 +1,38 @@
-# Virtual env
+# Python virtual environment
 venv/
 .env
-
-# Python cache
+.env.local
 __pycache__/
 *.pyc
+*.pyo
+*.pyd
 
-# SQLite database (não queremos no repositório)
-*.db
+# Backend database files
+backend/bugs.db
+backend/__pycache__/
+backend/repos/react/  # Ignore cloned react repo completely
+backend/repos/**/*.git/  # Just in case there are nested git dirs
 
-# Diretórios de build frontend (no futuro)
-dist/
-node_modules/
+# Docker
+*.log
+docker-compose.override.yml
 
-# Arquivos temporários de editor
-*.swp
-*.swo
+# Frontend caches
+frontend/node_modules/
+frontend/.cache/
+frontend/build/
+
+# OS generated files
 .DS_Store
+Thumbs.db
+
+# IDE / Editor files
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# Temporary files
+*.swp
+*.tmp
+*.bak
