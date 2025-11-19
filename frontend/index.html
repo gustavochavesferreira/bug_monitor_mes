@@ -58,6 +58,22 @@
   <div class="container">
     <h1>Dashboard de Monitoramento de Bugs</h1>
 
+    <div class="row g-3 mb-4 align-items-end justify-content-center">
+      <div class="col-auto">
+        <label for="startDate" class="form-label fw-bold">Data Início</label>
+        <input type="date" class="form-control" id="startDate">
+      </div>
+      <div class="col-auto">
+        <label for="endDate" class="form-label fw-bold">Data Fim</label>
+        <input type="date" class="form-control" id="endDate">
+      </div>
+      <div class="col-auto">
+        <button class="btn btn-primary px-4" onclick="updateCharts()">
+          Filtrar
+        </button>
+      </div>
+    </div>
+
     <div class="row g-4">
       <div class="col-md-6">
         <div class="card">

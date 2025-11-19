@@ -1,6 +1,6 @@
 import os
 import argparse
-from flask import Flask, jsonify, send_from_directory
+from flask import Flask, jsonify, send_from_directory, request
 from apscheduler.schedulers.background import BackgroundScheduler
 from datetime import datetime
 from collections import defaultdict
@@ -36,7 +36,34 @@ def api_files():
 @app.route("/api/bugs/summary")
 def api_bugs_summary():
     session = get_session()
-    bugs = session.query(Issue).filter(Issue.state != "pull_request").all()
+
+    start_date_str = request.args.get('startDate')
+    end_date_str = request.args.get('endDate')
+
+    query = session.query(Issue).filter(Issue.state != "pull_request")
+
+    if start_date_str:
+        try:
+            # Converte "2023-01-01" para objeto datetime
+            start_date_obj = datetime.strptime(start_date_str, '%Y-%m-%d')
+            query = query.filter(Issue.created_at >= start_date_obj)
+        except ValueError:
+            print(f"Formato de data inválido recebido: {start_date_str}")
+
+        # 2. Tratamento da DATA FINAL
+    if end_date_str:
+        try:
+            # Converte para objeto datetime
+            end_date_obj = datetime.strptime(end_date_str, '%Y-%m-%d')
+
+            # Ajusta para o final do dia (23:59:59) para pegar todos os bugs daquele dia
+            end_date_obj = end_date_obj.replace(hour=23, minute=59, second=59)
+
+            query = query.filter(Issue.created_at <= end_date_obj)
+        except ValueError:
+            print(f"Formato de data inválido recebido: {end_date_str}")
+
+    bugs = query.all()
     bugs_over_time = defaultdict(int)
     time_to_fix = []
     dev_counts = defaultdict(int)

@@ -1,12 +1,22 @@
 let charts = {};
 
-async function loadSummary() {
-  const resp = await fetch("/api/bugs/summary");
+function buildUrl(baseUrl, start, end) {
+  const params = new URLSearchParams();
+  if (start) params.append('startDate', start);
+  if (end) params.append('endDate', end);
+
+  return params.toString() ? `${baseUrl}?${params.toString()}` : baseUrl;
+}
+
+async function loadSummary(start, end) {
+  const url = buildUrl("/api/bugs/summary", start, end);
+  const resp = await fetch(url);
   return resp.json();
 }
 
-async function loadFiles() {
-  const resp = await fetch("/api/files");
+async function loadFiles(start, end) {
+  const url = buildUrl("/api/files", start, end);
+  const resp = await fetch(url);
   return resp.json();
 }
 
@@ -72,8 +82,11 @@ function plotBarChart(id, labels, data, label, color, horizontal = false) {
 
 async function updateCharts() {
   try {
-    const summary = await loadSummary();
-    const files = await loadFiles();
+    const startDate = document.getElementById('startDate').value;
+    const endDate = document.getElementById('endDate').value;
+
+    const summary = await loadSummary(startDate, endDate);
+    const files = await loadFiles(startDate, endDate);
 
     plotLineChart(
       "bugsOverTime",
@@ -114,6 +127,11 @@ async function updateCharts() {
 }
 
 document.addEventListener("DOMContentLoaded", () => {
+  const today = new Date();
+  document.getElementById('endDate').valueAsDate = today;
+  today.setDate(today.getDate() - 30);
+  document.getElementById('startDate').valueAsDate = today;
+
   updateCharts();
   setInterval(updateCharts, 300000); // Atualiza a cada 5 minutos
 });
