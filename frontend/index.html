@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Bug Monitor Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background: #f7f7f7;
+        }
+        h2 {
+            margin-top: 40px;
+        }
+        .chart-container {
+            width: 90%;
+            max-width: 900px;
+            margin: auto;
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px #ccc;
+        }
+    </style>
+</head>
+
+<body>
+
+    <h1>Bug Monitor Dashboard</h1>
+
+    <div class="chart-container">
+        <h2>Bugs Over Time</h2>
+        <canvas id="bugsOverTime"></canvas>
+    </div>
+
+    <div class="chart-container">
+        <h2>Time to Fix (Days)</h2>
+        <canvas id="timeToFix"></canvas>
+    </div>
+
+    <div class="chart-container">
+        <h2>Top Developers Fixing Bugs</h2>
+        <canvas id="topDevs"></canvas>
+    </div>
+
+    <script src="script.js"></script>
+
+</body>
+</html>

@@ -1,0 +1,19 @@
+# Virtual env
+venv/
+.env
+
+# Python cache
+__pycache__/
+*.pyc
+
+# SQLite database (não queremos no repositório)
+*.db
+
+# Diretórios de build frontend (no futuro)
+dist/
+node_modules/
+
+# Arquivos temporários de editor
+*.swp
+*.swo
+.DS_Store
